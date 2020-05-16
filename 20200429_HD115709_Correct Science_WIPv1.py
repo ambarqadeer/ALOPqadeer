@@ -31,7 +31,7 @@ def createmasterbias():
     print('Number of biases used =', len(biaslist))
 
     
-    #open bias zero for cube len
+    #open bias zero for cube dimensions
     hdub=fits.open(biaslist[0])
     bias0=hdub[4].data
     print(biaslist[0],'is open, shape:',bias0.shape)
