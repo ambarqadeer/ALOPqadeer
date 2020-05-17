@@ -107,3 +107,4 @@ mbref = input()
 print('select combination method? (1. median / 2. sigma clipped average)\n')
 method = input()
 tbiascollection, mbias, combbiaspath, combtime = bias_combine(mbref, method)
+

@@ -49,7 +49,7 @@ def createmasterbias():
         hdu=fits.open(biaslist[biasc])
         if hdu[4].header['CHIPNAME']=='A5382-1-7':
             bias=CCDData(hdu[4].data,unit=u.adu)
-            tbias=ccdproc.trim_image(bias,fits_section=str(sciencewindow))
+            tbias=ccdproc.trim_image(bias,fits_section=sciencewindow)
             biascube[:,:,biasc]=tbias.data
             hdu.close()
         else:
@@ -88,7 +88,7 @@ def createmasterflat():
         hdu=fits.open(flatlist[flatc])
         if hdu[4].header['CHIPNAME']=='A5382-1-7':
             ccdflat=CCDData(hdu[4].data,unit=u.adu)
-            ccdtflat=ccdproc.trim_image(ccdflat,fits_section=str(sciencewindow))
+            ccdtflat=ccdproc.trim_image(ccdflat,fits_section=sciencewindow)
             ccdcflat=ccdproc.subtract_bias(ccdtflat,ccdmbias_use)
             flatcube[:,:,flatc]=ccdcflat.data
             hdu.close()
@@ -130,7 +130,8 @@ sciencelist=sorted(glob.glob('HD115709/SII/r*.fit'))
 hdus=fits.open(sciencelist[0])
 science0=hdus[1].data
 print(sciencelist[0],'is open, shape:',science0.shape)
-sciencewindow=hdus[1].header['RTDATSEC']
+#sciencewindow=hdus[1].header['RTDATSEC']
+sciencewindow='[288:1617,1046:2509]'
 print(sciencewindow)
 hdus.close()
 print(sciencelist[0],'is closed')

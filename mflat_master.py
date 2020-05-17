@@ -30,7 +30,7 @@ def create_directories():
         print('created directory Trimmed_Flat/subflatssig')
 
 
-def trim_flat(refresh = '2'):
+def trim_flat(refresh='2'):
     flatcollection = ImageFileCollection('HD115709/flat_SII', ext=4)
     flag = 0
     tflatpathlist = []
@@ -60,7 +60,7 @@ def trim_flat(refresh = '2'):
     return flatcollection, tflatpathlist
 
 
-def sub_bias(refresh='2',bias='2'):
+def sub_bias(refresh='2', bias='2'):
     tflatcollection = ImageFileCollection('Trimmed_Flat')
     if bias == '1':
         biaspath = 'Master_Files/mbias_median.fits'
@@ -72,14 +72,14 @@ def sub_bias(refresh='2',bias='2'):
         subflatpathlist = []
         mbias = CCDData.read(biaspath, unit='adu')
         for ccdf, flatn in tflatcollection.ccds(imtype='trimmed flat', return_fname=True):
-            subflat=ccdp.subtract_bias(ccdf,mbias,add_keyword='subbias')
-            subflat.meta['imtype']=('subbias flat','bias subtracted flat')
-            subflat.write(dest+flatn[0:8]+'_subbias.fits')
-            subflatpathlist.append(dest+flatn[0:8]+'_subbias.fits')
+            subflat = ccdp.subtract_bias(ccdf, mbias, add_keyword='subbias')
+            subflat.meta['imtype'] = ('subflat', 'bias subtracted flat')
+            subflat.write(dest + flatn[0:8] + '_subbias.fits',overwrite=True)
+            subflatpathlist.append(dest + flatn[0:8] + '_subbias.fits')
     else:
         try:
             subflatcollection = ImageFileCollection(dest)
-            subflatpathlist = subflatcollection.files_filtered(imtype='subbias flat', include_path=True)
+            subflatpathlist = subflatcollection.files_filtered(imtype='subflat', include_path=True)
             print('found', len(subflatpathlist), 'subflats')
         except:
             print('can\'t locate subflats, create or check directory')
@@ -95,8 +95,59 @@ print('do you want to trim the flats? (1. Yes / 2. Read existing files)\n')
 tfref = input()
 flatcollection, tflatpathlist = trim_flat(tfref)
 
-
 # subtract bias from flats
-refresh=input('do you want to subtract bias from flats? (1. Yes / 2. Read existing files)\n')
-bias=input('select which bias to use (1. Median / 2. Sigma clipped average): \n')
-tflatcollection, subflatpathlist = sub_bias(refresh,bias)
+refresh = input('do you want to subtract bias from flats? (1. Yes / 2. Read existing files)\n')
+bias = input('select which bias to use (1. Median / 2. Sigma clipped average): \n')
+tflatcollection, subflatpathlist = sub_bias(refresh, bias)
+
+
+def combine_flats(refresh='2', method='2'):
+    if method == '1':
+        meta = 'med'
+        source = 'Trimmed_Flat/subflatsmed'
+        dest = 'Master_Files/mflat_median.fits'
+    elif method == '2':
+        meta = 'sig'
+        source = 'Trimmed_Flat/subflatssig'
+        dest = 'Master_Files/mflat.fits'
+    subflatcollection = ImageFileCollection(source)
+    combtime = 0
+    if refresh == '1':
+        print('found', len(subflatcollection.values('file')), 'subflats')
+        start = time.time()
+        if method == '1':
+            mflat = ccdp.combine(subflatcollection.files_filtered(
+                imtype='subflat', include_path=True),
+                method='median')
+            mflat.meta['flatcom'] = 'median'
+            combtime = time.time() - start
+            print('combination took', combtime, 'seconds')
+        elif method == '2':
+            mflat = ccdp.combine(subflatcollection.files_filtered(imtype='subflat', include_path=True),
+                                 sigma_clip=True, sigma_clip_low_thresh=5, sigma_clip_high_thresh=5,
+                                 sigma_clip_func=np.nanmedian, sigma_clip_dev_func=mad_std)
+            mflat.meta['flatcom'] = 'sigma'
+            combtime = time.time() - start
+            print('combination took', combtime, 'seconds')
+        mflat.meta['normmed'] = (np.nanmedian(mflat), 'nanmedian of the master flat')
+        mflat.meta['subflats'] = meta
+        mflat.write(dest[0:-5]+'_'+meta+'.fits', overwrite=True)
+    else:
+        try:
+            if method == '1':
+                mflat = CCDData.read('Master_Files/mflat_median_med.fits', unit='adu')
+
+            elif method == '2':
+                mflat = CCDData.read('Master_Files/mflat_sig.fits', unit='adu')
+        except:
+            print('can\'t locate master flat, create or check directory')
+            sys.exit()
+    return subflatcollection, mflat, dest, combtime
+
+
+# combine subflat files to form master flat, metadata contains norm
+print('do you want to create master flat again? (1. Yes / 2. Read existing files)\n')
+mbref = input()
+print('select combination method? (1. median / 2. sigma clipped average)\n')
+method = input()
+subflatcollection, mflat, mflatpath, combtime = combine_flats(mbref, method)
